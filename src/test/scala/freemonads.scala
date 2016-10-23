@@ -36,11 +36,14 @@ class FreeMonadApproach extends FlatSpec with Matchers{
   // Interpretation of IO programs
 
   import scalaz.~>
-  type HK_Algebra[F[_[_],_],P[_]] = F[P,?] ~> P
-  type IOAlg2[P[_]] = HK_Algebra[Lambda[(P[_],T)=>IOInst[T]],P]
   type IOAlg[P[_]] = IOInst ~> P
 
+  // More precisely:
+  // type HK_Algebra[F[_[_],_],P[_]] = F[P,?] ~> P
+  // type IOAlg[P[_]] = HK_Algebra[Lambda[(P[_],T)=>IOInst[T]],P]
+
   // Console-based interpretation of IO Programs
+
   import scalaz.Id, Id.Id
 
   object ConsoleIO extends IOAlg[Id]{
@@ -52,6 +55,7 @@ class FreeMonadApproach extends FlatSpec with Matchers{
   }
 
   // State-based interpretation of IO Programs
+
   import scalaz.State
 
   case class IOState(in: List[String], out: List[String])
@@ -95,7 +99,6 @@ class FreeMonadApproach extends FlatSpec with Matchers{
       IOState(List(),List("hi"))
   }
 
-
   // Logging instructions
   
   sealed abstract class LogInst[_]
@@ -123,15 +126,14 @@ class FreeMonadApproach extends FlatSpec with Matchers{
   type IOWithLogInst[T] = Coproduct[IOInst,LogInst,T]
 
   "compound instructions" should "work" in {
+    import scalaz.\/
     import LogInst._
 
-    val effect1: IOInst[String] = Read()
-    val effect2: LogInst[Unit] = Log(INFO,"hi")
-    val effect3: IOWithLogInst[String] = Coproduct.left(Read())
-    val effect4: IOWithLogInst[Unit] = Coproduct.rightc(Log(INFO,"hi"))
+    Coproduct.leftc(Read()) shouldBe 
+      Coproduct(\/.left(Read()))
 
-    import scalaz.\/
-    Coproduct.right(Log(WARNING,"hi")) shouldBe Coproduct(\/.right(Log(WARNING,"hi")))
+    Coproduct.right(Log(WARNING,"hi")) shouldBe 
+      Coproduct(\/.right(Log(WARNING,"hi")))
   }
 
   // Monadic IO programs with logging
@@ -189,7 +191,7 @@ class FreeMonadApproach extends FlatSpec with Matchers{
       IOState(List(), List("INFO: written 'hi'", "hi", "INFO: read 'hi'"))
   }
 
-  // Smart constructors for IO instructions prepared for Coproducts
+  // Smart constructors for IO and logging instructions prepared for Coproducts
   
   import scalaz.Inject
 
@@ -228,6 +230,5 @@ class FreeMonadApproach extends FlatSpec with Matchers{
       echo[IOWithLogInst]().foldMap(IOStateActionIOLog)
   }
 
-  
 
 }
