@@ -15,19 +15,21 @@ class FreeMonadApproach extends FlatSpec with Matchers{
   // IO Programs
 
   import scalaz.Free
-  type IO[T] = Free[IOInst,T]
+  type IOProgram[T] = Free[IOInst,T]
 
-  object IO{
-    def read(): IO[String] = Free.liftF(Read())
-    def write(msg: String): IO[Unit] = Free.liftF(Write(msg))
+  object IOProgram{
+    object Syntax{
+      def read(): IOProgram[String] = Free.liftF(Read())
+      def write(msg: String): IOProgram[Unit] = Free.liftF(Write(msg))
+    }
   }
 
   // Particular IO Program
   
   object SingleEffectProgram{
-    import IO._, Free._
+    import IOProgram.Syntax._, Free._
 
-    def echo(): IO[String] = for{
+    def echo(): IOProgram[String] = for{
       msg <- read()
       _ <- write(msg)
     } yield msg
@@ -138,27 +140,29 @@ class FreeMonadApproach extends FlatSpec with Matchers{
 
   // Monadic IO programs with logging
 
-  type IOLog[T] = Free[IOWithLogInst,T]
+  type IOLogProgram[T] = Free[IOWithLogInst,T]
 
-  object IOLog{
-    import Coproduct._
-    
-    def read(): IOLog[String] = 
-      Free.liftF[IOWithLogInst,String](left(Read()))
-    
-    def write(msg: String): IOLog[Unit] = 
-      Free.liftF[IOWithLogInst,Unit](left(Write(msg)))
-    
-    def log(level: Level, msg: String): IOLog[Unit] = 
-      Free.liftF[IOWithLogInst,Unit](right(Log(level,msg)))
+  object IOLogProgram{
+    object Syntax{
+      import Coproduct._
+      
+      def read(): IOLogProgram[String] = 
+        Free.liftF[IOWithLogInst,String](left(Read()))
+      
+      def write(msg: String): IOLogProgram[Unit] = 
+        Free.liftF[IOWithLogInst,Unit](left(Write(msg)))
+      
+      def log(level: Level, msg: String): IOLogProgram[Unit] = 
+        Free.liftF[IOWithLogInst,Unit](right(Log(level,msg)))
+    }
   }
 
   // Particular program
   
   object MultipleEffectProgram{
-    import IOLog._
+    import IOLogProgram.Syntax._
 
-    def echo(): IOLog[String] = for {
+    def echo(): IOLogProgram[String] = for {
       msg <- read()
       _ <- log(INFO, s"read '$msg'")
       _ <- write(msg)
@@ -226,7 +230,7 @@ class FreeMonadApproach extends FlatSpec with Matchers{
     import MultipleEffectAbstractProgram._
     import scalaz.Inject._
 
-    def consoleEcho(): IOStateAction[String] = 
+    def stateEcho(): IOStateAction[String] = 
       echo[IOWithLogInst]().foldMap(IOStateActionIOLog)
   }
 
