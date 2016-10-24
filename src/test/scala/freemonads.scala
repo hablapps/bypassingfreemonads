@@ -129,7 +129,6 @@ class FreeMonadApproach extends FlatSpec with Matchers{
 
   "compound instructions" should "work" in {
     import scalaz.\/
-    import LogInst._
 
     Coproduct.leftc(Read()) shouldBe 
       Coproduct(\/.left(Read()))
@@ -199,7 +198,9 @@ class FreeMonadApproach extends FlatSpec with Matchers{
   
   import scalaz.Inject
 
-  object IOInst{
+  type IOInject[I[_]] = Inject[IOInst,I]
+
+  object IOInject{
 
     def read[I[_]]()(implicit I: Inject[IOInst,I]): Free[I,String] = 
       Free.liftF(I.inj(Read()))
@@ -208,7 +209,9 @@ class FreeMonadApproach extends FlatSpec with Matchers{
       Free.liftF(I.inj(Write(msg)))
   }
 
-  object LogInst{
+  type LogInject[I[_]] = Inject[LogInst,I]
+
+  object LogInject{
     def log[I[_]](level: Level, msg: String)(implicit I: Inject[LogInst,I]): Free[I,Unit] = 
       Free.liftF(I.inj(Log(level,msg)))
   }
@@ -216,9 +219,9 @@ class FreeMonadApproach extends FlatSpec with Matchers{
   // Generic programs
 
   object MultipleEffectAbstractProgram{
-    import IOInst._, LogInst._
+    import IOInject._, LogInject._
 
-    def echo[I[_]: Inject[IOInst,?[_]]: Inject[LogInst,?[_]]](): Free[I,String] = for {
+    def echo[I[_]: IOInject: LogInject](): Free[I,String] = for {
       msg <- read()
       _ <- log(INFO, s"read '$msg'")
       _ <- write(msg)
