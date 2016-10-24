@@ -5,132 +5,135 @@ import org.scalatest._
 object ChurchApproach extends ChurchApproach
 
 class ChurchApproach extends FlatSpec with Matchers{
+
+  object SingleEffects{    
+    // IO Programs
+
+    import scalaz.Monad
+    import ObjectAlgebraApproach.IOAlg
+
+    trait IOProgram[T]{
+      def apply[P[_]: IOAlg: Monad]: P[T]
+    }
+
+    // Particular IO Program
     
-  // IO Programs
+    object SingleEffectProgramAdHoc{
 
-  trait IOProgram[T]{
-    def apply[P[_]](ioalg: IOAlg[P], monad: Monad[P]): P[T]
-  }
+      def echo(plus: String) = new IOProgram[String]{
+        import IOAlg.Syntax._, scalaz.syntax.monad._
 
-  // Particular IO Program
-  
-  object SingleEffectProgram{
-    import scalaz.Monad
-    import IOAlg.Syntax._, scalaz.syntax.monad._
+        def apply[P[_]: IOAlg: Monad] = for{
+          msg <- read()
+          _ <- write(msg + plus)
+        } yield msg
+      }
+    } 
 
-    def echo[P[_]: IOAlg: Monad](): P[String] = for{
-      msg <- read()
-      _ <- write(msg)
-    } yield msg
-  } 
+    // IOProgram are IO algebras
 
-  // Console-based interpretation of IO Programs
+    object IOProgram{
+      implicit object IOProgramIOAlg extends IOAlg[IOProgram]{
+        import IOAlg.Syntax
 
-  import scalaz.Id, Id.Id
-
-  object Console{
-    implicit object ConsoleIO extends IOAlg[Id]{
-      def read() = scala.io.StdIn.readLine()
-      def write(msg: String) = println(msg)
-    }
-  }
-
-  // State-based interpretation of IO Programs
-
-  import scalaz.State
-
-  case class IOState(in: List[String], out: List[String])
-
-  type IOStateAction[T]=State[IOState,T]
-
-  object IOStateAction{
-    implicit object IOStateActionIO extends IOAlg[IOStateAction]{
-      import scalaz.syntax.monad._
-      
-      def read() = State.get[IOState] >>= {
-        case IOState(msg::reads,written) => 
-          State.put(IOState(reads,written)) >| msg
+        def read() = new IOProgram[String]{
+          def apply[P[_]: IOAlg: Monad] = 
+            Syntax.read[P]()
+        }
+        def write(msg: String): IOProgram[Unit] = new IOProgram[Unit]{
+          def apply[P[_]: IOAlg: Monad] = 
+            Syntax.write[P](msg)
+        }
       }
 
-      def write(msg: String) = State.get[IOState] >>= {
-        case IOState(reads, written) => 
-          State.put(IOState(reads, msg::written))
+      implicit object IOProgramMonad extends Monad[IOProgram]{
+        def bind[A,B](p: IOProgram[A])(f: A => IOProgram[B]) = new IOProgram[B]{ 
+          def apply[P[_]: IOAlg: Monad] = 
+            Monad[P].bind(p.apply[P])(f andThen (_.apply[P]))
+        }
+        def point[A](a: => A) = new IOProgram[A]{
+          def apply[P[_]: IOAlg: Monad] = 
+            Monad[P].point(a)
+        }
       }
     }
-  }
 
-  // Echo interpretations
+    object SingleEffectProgram{
+      import IOAlg.Syntax._, scalaz.syntax.monad._
+
+      def echo(plus: String): IOProgram[String] = for{
+        msg <- read[IOProgram]()
+        _ <- write[IOProgram](msg + plus)
+      } yield msg
+
+    } 
+
+    
+    // Echo interpretations
+    
+    object SingleEffectInterpretations{
+      import ObjectAlgebraApproach.{Console, IOStateAction}
+      import SingleEffectProgram._
+      import scalaz.{Id, Monad}, Id._
+
+      import Console._
+      def consoleEcho(plus: String): String = 
+        echo(plus)(IOAlg[Id], Monad[Id])
+
+      import IOStateAction._
+      def stateEcho(plus: String): IOStateAction[String] = 
+        echo(plus)[IOStateAction]
+    }
+
+    "State-based echo" should "work" in {
+      import ObjectAlgebraApproach.IOState
+      import SingleEffectInterpretations._
+
+      stateEcho("").eval(IOState(List("hi"),List())) shouldBe 
+        "hi"
+
+      stateEcho("").exec(IOState(List("hi"),List())) shouldBe
+        IOState(List(),List("hi"))
+    }
+  }
   
-  object SingleEffectInterpretations{
-    import SingleEffectProgram._
+  object MultipleEffects{
+
+    // IO Programs
+
     import scalaz.Monad
+    import ObjectAlgebraApproach.{LogAlg, IOAlg}
 
-    def consoleEcho(): String = 
-      echo()(Console.ConsoleIO, Monad[Id])
-
-    import IOStateAction._
-    def stateEcho(): IOStateAction[String] = 
-      echo[IOStateAction]()
-  }
-
-  "State-based echo" should "work" in {
-    import SingleEffectInterpretations._
-
-    stateEcho().eval(IOState(List("hi"),List())) shouldBe 
-      "hi"
-
-    stateEcho().exec(IOState(List("hi"),List())) shouldBe
-      IOState(List(),List("hi"))
-  }
-
-  // Interpretations over IOState 
-  
-  sealed abstract class Level
-  case object WARNING extends Level
-  case object DEBUG extends Level
-  case object INFO extends Level
-  
-  trait LogAlg[P[_]]{
-    def log(level: Level, msg: String): P[Unit]
-  }
-
-  object LogAlg{
-    object Syntax{
-      def log[P[_]](level: Level, msg: String)(implicit Log: LogAlg[P]) = 
-        Log.log(level,msg)
+    trait IOProgram[T]{
+      def apply[P[_]: IOAlg: LogAlg: Monad]: P[T]
     }
+   
+    // Generic programs
 
-    implicit object IOStateActionLog extends LogAlg[IOStateAction]{
-      def log(level: Level, msg: String) = 
-        IOStateAction.IOStateActionIO.write(s"$level: $msg")
-    }
-  }
-
-  // Generic programs
-
-  object MultipleEffectAbstractProgram{
     import scalaz.Monad
     import IOAlg.Syntax._, LogAlg.Syntax._, scalaz.syntax.monad._
+    import ObjectAlgebraApproach.INFO
 
-    def echo[P[_]: IOAlg: LogAlg: Monad](): P[String] = for {
-      msg <- read()
-      _ <- log(INFO, s"read '$msg'")
-      _ <- write(msg)
-      _ <- log(INFO, s"written '$msg'")
-    } yield msg
-  }
+    def echo(plus: String) = new IOProgram[String]{
+      def apply[P[_]: IOAlg: LogAlg: Monad]: P[String] = for{
+        msg <- read()
+        _ <- log(INFO, s"read '$msg'")
+        _ <- write(msg)
+        _ <- log(INFO, s"written '$msg'")
+      } yield msg
+    }
 
-  "IO with logging programs" should "work with io actions" in {
-    import MultipleEffectAbstractProgram._
-    import IOStateAction._
-    
-    val init: IOState = IOState(List("hi"),List())
+    "IO with logging programs" should "work with io actions" in {
+      import ObjectAlgebraApproach.{IOState, IOStateAction}, IOStateAction._
+      
+      val init: IOState = IOState(List("hi"),List())
 
-    echo[IOStateAction]().eval(init) shouldBe 
-      "hi"
+      echo("")[IOStateAction].eval(init) shouldBe 
+        "hi"
 
-    echo[IOStateAction]().exec(init) shouldBe 
-      IOState(List(), List("INFO: written 'hi'", "hi", "INFO: read 'hi'"))
+      echo("")[IOStateAction].exec(init) shouldBe 
+        IOState(List(), List("INFO: written 'hi'", "hi", "INFO: read 'hi'"))
+    }
   }
 
 }

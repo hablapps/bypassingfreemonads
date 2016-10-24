@@ -14,6 +14,9 @@ class ObjectAlgebraApproach extends FlatSpec with Matchers{
   }
 
   object IOAlg{
+
+    def apply[P[_]](implicit IO: IOAlg[P]) = IO
+    
     object Syntax{
       def read[P[_]]()(implicit IO: IOAlg[P]): P[String] = 
         IO.read()
@@ -144,4 +147,4 @@ class ObjectAlgebraApproach extends FlatSpec with Matchers{
       IOState(List(), List("INFO: written 'hi'", "hi", "INFO: read 'hi'"))
   }
 
-}
+ }
