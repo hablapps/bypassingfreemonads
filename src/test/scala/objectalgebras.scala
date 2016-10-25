@@ -16,7 +16,7 @@ class ObjectAlgebraApproach extends FlatSpec with Matchers{
   object IOAlg{
 
     def apply[P[_]](implicit IO: IOAlg[P]) = IO
-    
+
     object Syntax{
       def read[P[_]]()(implicit IO: IOAlg[P]): P[String] = 
         IO.read()
@@ -103,21 +103,31 @@ class ObjectAlgebraApproach extends FlatSpec with Matchers{
   case object WARNING extends Level
   case object DEBUG extends Level
   case object INFO extends Level
+  case object TRACE extends Level
   
   trait LogAlg[P[_]]{
     def log(level: Level, msg: String): P[Unit]
+    def trace(msg: String): P[Unit] = log(TRACE,msg)
   }
 
   object LogAlg{
     object Syntax{
       def log[P[_]](level: Level, msg: String)(implicit Log: LogAlg[P]) = 
         Log.log(level,msg)
+      def trace[P[_]](msg: String)(implicit Log: LogAlg[P]) = 
+        Log.trace(msg)
     }
 
     implicit object IOStateActionLog extends LogAlg[IOStateAction]{
       def log(level: Level, msg: String) = 
         IOStateAction.IOStateActionIO.write(s"$level: $msg")
     }
+
+    implicit object ConsoleLog extends LogAlg[Id]{
+      def log(level: Level, msg: String) = 
+        println(s"$level: $msg")
+    }
+
   }
 
   // Generic programs
@@ -128,9 +138,9 @@ class ObjectAlgebraApproach extends FlatSpec with Matchers{
 
     def echo[P[_]: IOAlg: LogAlg: Monad](): P[String] = for {
       msg <- read()
-      _ <- log(INFO, s"read '$msg'")
+      _ <- trace(s"read '$msg'")
       _ <- write(msg)
-      _ <- log(INFO, s"written '$msg'")
+      _ <- trace(s"written '$msg'")
     } yield msg
   }
 
@@ -144,7 +154,7 @@ class ObjectAlgebraApproach extends FlatSpec with Matchers{
       "hi"
 
     echo[IOStateAction]().exec(init) shouldBe 
-      IOState(List(), List("INFO: written 'hi'", "hi", "INFO: read 'hi'"))
+      IOState(List(), List("TRACE: written 'hi'", "hi", "TRACE: read 'hi'"))
   }
 
  }

@@ -121,6 +121,12 @@ class FreeMonadApproach extends FlatSpec with Matchers{
     }
   }
 
+  object ConsoleLog extends LogAlg[Id]{
+    def apply[T](inst: LogInst[T]): T = inst match {
+      case Log(level, msg) => ConsoleIO(Write(s"$level: $msg"))
+    }
+  }
+
   // Composing instructions
 
   import scalaz.Coproduct
@@ -171,10 +177,17 @@ class FreeMonadApproach extends FlatSpec with Matchers{
 
   // Interpretation 
   
-  object IOStateActionIOLog extends (IOWithLogInst ~> IOStateAction){
-    def apply[T](inst: IOWithLogInst[T]): IOStateAction[T] = 
-      inst.run.fold(IOStateActionIO(_), IOStateActionLog(_))
+  implicit class OrOp[F[_],H[_]](nattrans1: F ~> H){
+    import scalaz.Coproduct
+
+    def or[G[_]](nattrans2: G~>H) = new (Coproduct[F,G,?]~>H){
+      def apply[T](inst: Coproduct[F,G,T]) = 
+        inst.run.fold(nattrans1, nattrans2)
+    }
   }
+  
+  val IOStateActionIOLog: IOWithLogInst ~> IOStateAction = 
+    IOStateActionIO or IOStateActionLog 
 
   object MultipleEffectInterpretation{
     import MultipleEffectProgram._
@@ -234,8 +247,8 @@ class FreeMonadApproach extends FlatSpec with Matchers{
     import scalaz.Inject._
 
     def stateEcho(): IOStateAction[String] = 
-      echo[IOWithLogInst]().foldMap(IOStateActionIOLog)
+      echo[Coproduct[IOInst,LogInst,?]]()
+        .foldMap(IOStateActionIO or IOStateActionLog)
   }
-
 
 }
