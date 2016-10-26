@@ -1,4 +1,5 @@
 package org.hablapps.talk
+package bypassingfreemonads
 
 import org.scalatest._
 
