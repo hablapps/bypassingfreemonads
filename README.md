@@ -10,7 +10,7 @@ take you to the scala console:
 > ./sbt console
 ```
 
-To exercise the live coding, type this in the sbt prompt: 
+To exercise the live coding, type this: 
 ```scala
-> ~testOnly org.hablapps.talk.bypassingfreemonads.templates.ObjectAlgebraApproach
-```
+> ./sbt ~testOnly org.hablapps.talk.bypassingfreemonads.templates.ObjectAlgebraApproach
+``
