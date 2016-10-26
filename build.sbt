@@ -22,7 +22,5 @@ scalacOptions ++= Seq(
   "-language:higherKinds")
 
 initialCommands in console := """
-  |import org.hablapps.talk.AllRoadsLeadToLambdaWorld._
-  |import OnceUponATime.{StringList => SL, IntList => IL, _}
-  |import JavaToTheRescue._
+  |import org.hablapps.talk.bypassingfreemonads._
   |""".stripMargin

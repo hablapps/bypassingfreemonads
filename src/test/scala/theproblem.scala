@@ -1,4 +1,5 @@
 package org.hablapps.talk
+package bypassingfreemonads
 
 import scala.io.StdIn.readLine
 import org.scalatest._
