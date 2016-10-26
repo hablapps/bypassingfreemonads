@@ -12,5 +12,5 @@ take you to the scala console:
 
 To exercise the live coding, type this: 
 ```scala
-> ./sbt ~testOnly org.hablapps.talk.bypassingfreemonads.templates.ObjectAlgebraApproach
+> ./sbt "~testOnly org.hablapps.talk.bypassingfreemonads.templates.ObjectAlgebraApproach"
 ```
