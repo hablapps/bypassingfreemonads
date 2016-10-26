@@ -8,20 +8,20 @@ class ObjectAlgebraApproach extends FlatSpec with Matchers{
     
   // IO algebras
 
-  trait IOAlg[P[_]]{
+  trait IO[P[_]]{
     def read(): P[String]
     def write(msg: String): P[Unit]
   }
 
-  object IOAlg{
+  object IO{
 
-    def apply[P[_]](implicit IO: IOAlg[P]) = IO
+    def apply[P[_]](implicit IO: IO[P]) = IO
 
     object Syntax{
-      def read[P[_]]()(implicit IO: IOAlg[P]): P[String] = 
+      def read[P[_]]()(implicit IO: IO[P]): P[String] = 
         IO.read()
 
-      def write[P[_]](msg: String)(implicit IO: IOAlg[P]): P[Unit] = 
+      def write[P[_]](msg: String)(implicit IO: IO[P]): P[Unit] = 
         IO.write(msg)
     }
   }
@@ -30,9 +30,9 @@ class ObjectAlgebraApproach extends FlatSpec with Matchers{
   
   object SingleEffectProgram{
     import scalaz.Monad
-    import IOAlg.Syntax._, scalaz.syntax.monad._
+    import IO.Syntax._, scalaz.syntax.monad._
 
-    def echo[P[_]: IOAlg: Monad](): P[String] = for{
+    def echo[P[_]: IO: Monad](): P[String] = for{
       msg <- read()
       _ <- write(msg)
     } yield msg
@@ -43,7 +43,7 @@ class ObjectAlgebraApproach extends FlatSpec with Matchers{
   import scalaz.Id, Id.Id
 
   object Console{
-    implicit object ConsoleIO extends IOAlg[Id]{
+    implicit object ConsoleIO extends IO[Id]{
       def read() = scala.io.StdIn.readLine()
       def write(msg: String) = println(msg)
     }
@@ -58,7 +58,7 @@ class ObjectAlgebraApproach extends FlatSpec with Matchers{
   type IOStateAction[T]=State[IOState,T]
 
   object IOStateAction{
-    implicit object IOStateActionIO extends IOAlg[IOStateAction]{
+    implicit object IOStateActionIO extends IO[IOStateAction]{
       import scalaz.syntax.monad._
       
       def read() = State.get[IOState] >>= {
@@ -105,25 +105,25 @@ class ObjectAlgebraApproach extends FlatSpec with Matchers{
   case object INFO extends Level
   case object TRACE extends Level
   
-  trait LogAlg[P[_]]{
+  trait Log[P[_]]{
     def log(level: Level, msg: String): P[Unit]
     def trace(msg: String): P[Unit] = log(TRACE,msg)
   }
 
-  object LogAlg{
+  object Log{
     object Syntax{
-      def log[P[_]](level: Level, msg: String)(implicit Log: LogAlg[P]) = 
+      def log[P[_]](level: Level, msg: String)(implicit Log: Log[P]) = 
         Log.log(level,msg)
-      def trace[P[_]](msg: String)(implicit Log: LogAlg[P]) = 
+      def trace[P[_]](msg: String)(implicit Log: Log[P]) = 
         Log.trace(msg)
     }
 
-    implicit object IOStateActionLog extends LogAlg[IOStateAction]{
+    implicit object IOStateActionLog extends Log[IOStateAction]{
       def log(level: Level, msg: String) = 
         IOStateAction.IOStateActionIO.write(s"$level: $msg")
     }
 
-    implicit object ConsoleLog extends LogAlg[Id]{
+    implicit object ConsoleLog extends Log[Id]{
       def log(level: Level, msg: String) = 
         println(s"$level: $msg")
     }
@@ -134,9 +134,9 @@ class ObjectAlgebraApproach extends FlatSpec with Matchers{
 
   object MultipleEffectAbstractProgram{
     import scalaz.Monad
-    import IOAlg.Syntax._, LogAlg.Syntax._, scalaz.syntax.monad._
+    import IO.Syntax._, Log.Syntax._, scalaz.syntax.monad._
 
-    def echo[P[_]: IOAlg: LogAlg: Monad](): P[String] = for {
+    def echo[P[_]: IO: Log: Monad](): P[String] = for {
       msg <- read()
       _ <- trace(s"read '$msg'")
       _ <- write(msg)

@@ -9,9 +9,9 @@ class ConventionalApproach extends FlatSpec with Matchers{
 
   object NonModular{
   
-    def echo(plus: String): String = {
+    def echo(): String = {
       val msg: String = readLine()
-      println(msg + plus)
+      println(msg)
       msg
     }
   }
@@ -23,9 +23,9 @@ class ConventionalApproach extends FlatSpec with Matchers{
       def write(msg: String): Unit
     }
 
-    def echo(plus: String)(io: IO): String = {
+    def echo()(io: IO): String = {
       val msg: String = io.read()
-      io.write(msg + plus)
+      io.write(msg)
       msg
     }
 
@@ -34,8 +34,8 @@ class ConventionalApproach extends FlatSpec with Matchers{
       def write(msg: String) = println(msg)
     }
 
-    def consoleEcho(plus: String): String = 
-      echo(plus)(ConsoleIO)
+    def consoleEcho(): String = 
+      echo()(ConsoleIO)
 
   }
 
@@ -71,7 +71,7 @@ class ConventionalApproach extends FlatSpec with Matchers{
     }
 
     import Modular.ConsoleIO
-    def consoleLogEcho(): String = 
+    def consoleEchoWithLog(): String = 
       echoWithLog()(ConsoleIO, ConsoleLog)
   }
 
@@ -98,7 +98,7 @@ class ConventionalApproach extends FlatSpec with Matchers{
       def write(msg: String): Future[Unit] = Future(println(msg))
     }
 
-    def echo(io: IO): Future[String] =
+    def echo()(io: IO): Future[String] =
       io.read().flatMap{ msg => 
         io.write(msg).flatMap{ _ => 
           Future.successful(msg)

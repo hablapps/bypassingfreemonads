@@ -38,17 +38,17 @@ class FreeMonadApproach extends FlatSpec with Matchers{
   // Interpretation of IO programs
 
   import scalaz.~>
-  type IOAlg[P[_]] = IOInst ~> P
+  type IO[P[_]] = IOInst ~> P
 
   // More precisely:
   // type HK_Algebra[F[_[_],_],P[_]] = F[P,?] ~> P
-  // type IOAlg[P[_]] = HK_Algebra[Lambda[(P[_],T)=>IOInst[T]],P]
+  // type IO[P[_]] = HK_Algebra[Lambda[(P[_],T)=>IOInst[T]],P]
 
   // Console-based interpretation of IO Programs
 
   import scalaz.Id, Id.Id
 
-  object ConsoleIO extends IOAlg[Id]{
+  object ConsoleIO extends IO[Id]{
     import scala.io.StdIn
     def apply[T](inst: IOInst[T]): T = inst match {
       case Read() => StdIn.readLine()
@@ -64,7 +64,7 @@ class FreeMonadApproach extends FlatSpec with Matchers{
 
   type IOStateAction[T]=State[IOState,T]
 
-  object IOStateActionIO extends IOAlg[IOStateAction]{
+  object IOStateActionIO extends IO[IOStateAction]{
     import scalaz.syntax.monad._
     
     def apply[T](inst: IOInst[T]): IOStateAction[T] = inst match {
@@ -104,7 +104,7 @@ class FreeMonadApproach extends FlatSpec with Matchers{
   // Logging instructions
   
   sealed abstract class LogInst[_]
-  case class Log(level: Level, msg: String) extends LogInst[Unit]
+  case class Logging(level: Level, msg: String) extends LogInst[Unit]
 
   sealed abstract class Level
   case object WARNING extends Level
@@ -113,17 +113,17 @@ class FreeMonadApproach extends FlatSpec with Matchers{
 
   // Interpretations over IOState 
   
-  type LogAlg[P[_]] = LogInst ~> P
+  type Log[P[_]] = LogInst ~> P
 
-  object IOStateActionLog extends LogAlg[IOStateAction]{
+  object IOStateActionLog extends Log[IOStateAction]{
     def apply[T](inst: LogInst[T]): IOStateAction[T] = inst match {
-      case Log(level, msg) => IOStateActionIO(Write(s"$level: $msg"))
+      case Logging(level, msg) => IOStateActionIO(Write(s"$level: $msg"))
     }
   }
 
-  object ConsoleLog extends LogAlg[Id]{
+  object ConsoleLog extends Log[Id]{
     def apply[T](inst: LogInst[T]): T = inst match {
-      case Log(level, msg) => ConsoleIO(Write(s"$level: $msg"))
+      case Logging(level, msg) => ConsoleIO(Write(s"$level: $msg"))
     }
   }
 
@@ -139,8 +139,8 @@ class FreeMonadApproach extends FlatSpec with Matchers{
     Coproduct.leftc(Read()) shouldBe 
       Coproduct(\/.left(Read()))
 
-    Coproduct.right(Log(WARNING,"hi")) shouldBe 
-      Coproduct(\/.right(Log(WARNING,"hi")))
+    Coproduct.right(Logging(WARNING,"hi")) shouldBe 
+      Coproduct(\/.right(Logging(WARNING,"hi")))
   }
 
   // Monadic IO programs with logging
@@ -158,7 +158,7 @@ class FreeMonadApproach extends FlatSpec with Matchers{
         Free.liftF[IOWithLogInst,Unit](left(Write(msg)))
       
       def log(level: Level, msg: String): IOLogProgram[Unit] = 
-        Free.liftF[IOWithLogInst,Unit](right(Log(level,msg)))
+        Free.liftF[IOWithLogInst,Unit](right(Logging(level,msg)))
     }
   }
 
@@ -226,7 +226,7 @@ class FreeMonadApproach extends FlatSpec with Matchers{
 
   object LogInject{
     def log[I[_]](level: Level, msg: String)(implicit I: Inject[LogInst,I]): Free[I,Unit] = 
-      Free.liftF(I.inj(Log(level,msg)))
+      Free.liftF(I.inj(Logging(level,msg)))
   }
 
   // Generic programs

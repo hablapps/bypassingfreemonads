@@ -10,14 +10,14 @@ class ChurchFreeIsomorphism extends FlatSpec with Matchers{
   val FM = FreeMonadApproach
   val OA = ObjectAlgebraApproach
 
-  object ChurchIOAlg extends FM.IOAlg[C.IOProgram]{
+  object ChurchIOProgramIO extends FM.IO[C.IOProgram]{
     def apply[T](inst: FM.IOInst[T]) = inst match {
-      case FM.Read() => C.IOProgram.IOProgramIOAlg.read()
-      case FM.Write(msg) => C.IOProgram.IOProgramIOAlg.write(msg)
+      case FM.Read() => C.IOProgram.IOProgramIO.read()
+      case FM.Write(msg) => C.IOProgram.IOProgramIO.write(msg)
     }
   }
 
-  object FreeIOProgramIOAlg extends OA.IOAlg[FM.IOProgram]{
+  object FreeIOProgramIO extends OA.IO[FM.IOProgram]{
     def read(): FM.IOProgram[String] = 
       FM.IOProgram.Syntax.read()
     def write(msg: String): FM.IOProgram[Unit] = 
@@ -29,10 +29,10 @@ class ChurchFreeIsomorphism extends FlatSpec with Matchers{
   val Iso: C.IOProgram <~> FM.IOProgram = 
     new IsoFunctorTemplate[C.IOProgram, FM.IOProgram]{
       def to[T](ioprogram: C.IOProgram[T]): FM.IOProgram[T] = 
-        ioprogram(FreeIOProgramIOAlg, scalaz.Monad[FM.IOProgram])
+        ioprogram(FreeIOProgramIO, scalaz.Monad[FM.IOProgram])
 
       def from[T](ioprogram: FM.IOProgram[T]): C.IOProgram[T] = 
-        ioprogram.foldMap(ChurchIOAlg)
+        ioprogram.foldMap(ChurchIOProgramIO)
     }
 
 }
