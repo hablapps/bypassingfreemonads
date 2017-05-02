@@ -9,3 +9,8 @@ take you to the scala console:
 ```scala
 > ./sbt console
 ```
+
+To exercise the live coding, type this: 
+```scala
+> ./sbt "~testOnly org.hablapps.talk.bypassingfreemonads.templates.ObjectAlgebraApproach"
+```

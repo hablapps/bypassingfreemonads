@@ -1,6 +1,7 @@
 package org.hablapps.talk
 package bypassingfreemonads
 
+import scala.io.StdIn.readLine
 import org.scalatest._
 
 object ObjectAlgebraApproach extends ObjectAlgebraApproach
@@ -27,7 +28,7 @@ class ObjectAlgebraApproach extends FlatSpec with Matchers{
     }
   }
 
-  // Particular IO Program
+  // Particular Monadic IO Program
   
   object SingleEffectProgram{
     import scalaz.Monad
@@ -45,7 +46,7 @@ class ObjectAlgebraApproach extends FlatSpec with Matchers{
 
   object Console{
     implicit object ConsoleIO extends IO[Id]{
-      def read() = scala.io.StdIn.readLine()
+      def read() = readLine()
       def write(msg: String) = println(msg)
     }
   }
@@ -158,4 +159,50 @@ class ObjectAlgebraApproach extends FlatSpec with Matchers{
       IOState(List(), List("TRACE: written 'hi'", "hi", "TRACE: read 'hi'"))
   }
 
- }
+  // Other kinds of programs: applicative, monad error
+
+  object ApplicativePrograms{
+    import IO.Syntax._
+    import scalaz.Apply, scalaz.syntax.apply._
+
+    def sayWhat[P[_]: IO: Apply]: P[String] =
+      write("Say what?") *> read()
+  }
+
+
+  object MonadErrorPrograms{
+    import IO.Syntax._
+    import scalaz.MonadError, scalaz.syntax.monadError._
+
+    // Only echoes if it reads a non-empty string; otherwise, raises error
+
+    def echo[P[_]: IO: MonadError[?[_],Exception]](): P[String] = for {
+      msg <- read()
+      _ <- if (msg == "") 
+             (new Exception("empty string")).raiseError[P,Unit]
+           else write(msg)
+    } yield msg
+
+    // IO instantiation for Either
+
+    implicit object ConsoleOptional extends IO[Either[Exception,?]]{
+      def read(): Either[Exception,String] = Right(readLine())
+      def write(msg: String): Either[Exception,Unit] = Right(println(msg))
+    }
+  }
+
+  "IO with monad error" should "work" in {
+    import MonadErrorPrograms._
+    import scalaz.std.either._
+    
+    // type "hi" for this test to succeed
+    echo[Either[Exception,?]]() shouldBe 
+      Right("hi")
+
+    // Type the empty string for this test to succeed
+    echo[Either[Exception,?]]().isLeft shouldBe true
+  }
+
+  
+
+}
