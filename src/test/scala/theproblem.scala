@@ -148,4 +148,33 @@ class ConventionalApproach extends FlatSpec with Matchers{
 
   }
 
+  object ProblemsOfAdHocDSLs{
+
+    // As we can see, in order to create a new imperative DSL we have 
+    // to copy & paste the cases that allow us to write imperative programs.
+    object NewImperativeDSL{
+
+      sealed abstract class FileSystemProgram[_]
+      case class ReadFile(path: String) extends FileSystemProgram[String]
+      case class WriteFile(path: String, contents: String) extends FileSystemProgram[Unit]
+      case class DeleteFile(path: String) extends FileSystemProgram[Unit]
+      case class FlatMap[A,B](p: FileSystemProgram[A], f: A => FileSystemProgram[B]) extends FileSystemProgram[B]
+      case class Returns[A](a: A) extends FileSystemProgram[A]
+    }
+
+    // Moreover, what if we need to write imperative programs that refer both
+    // to IO and FileSystem instructions?
+    object MultipleEffects{
+      
+      sealed abstract class FileSystemIOProgram[_]
+      case class Read() extends FileSystemIOProgram[String]
+      case class Write(msg: String) extends FileSystemIOProgram[Unit]
+      case class ReadFile(path: String) extends FileSystemIOProgram[String]
+      case class WriteFile(path: String, contents: String) extends FileSystemIOProgram[Unit]
+      case class DeleteFile(path: String) extends FileSystemIOProgram[Unit]
+      case class FlatMap[A,B](p: FileSystemIOProgram[A], f: A => FileSystemIOProgram[B]) extends FileSystemIOProgram[B]
+      case class Returns[A](a: A) extends FileSystemIOProgram[A]
+    }
+  }
+
 }

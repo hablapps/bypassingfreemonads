@@ -137,4 +137,27 @@ class ChurchApproach extends FlatSpec with Matchers{
     }
   }
 
+  object DefiningChurch{
+    import scalaz.Monad
+    import ObjectAlgebraApproach.IO, IO.Syntax._, scalaz.syntax.monad._
+
+    trait Church[Alg[_[_]], T]{
+      def apply[P[_]: Alg: Monad]: P[T]
+    }
+
+    type IOProgram[T] = Church[IO,T]
+
+    def echo[P[_]: IO: Monad](): P[String] = ???
+
+    def echo(): { def apply[P[_]: IO: Monad]: P[String] } = ??? 
+
+    def echo2(): Church[IO,String] = new IOProgram[String]{
+      def apply[P[_]: IO: Monad] = for{
+        msg <- read()
+        _ <- write(msg)
+      } yield msg
+    }
+
+  }
+
 }
