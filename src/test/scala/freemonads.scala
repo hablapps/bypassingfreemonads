@@ -45,17 +45,26 @@ class FreeMonadApproach extends FlatSpec with Matchers{
   // type HK_Algebra[F[_[_],_],P[_]] = F[P,?] ~> P
   // type IO[P[_]] = HK_Algebra[Lambda[(P[_],T)=>IOInst[T]],P]
 
+  import scalaz.Monad
+
+  def IOInterpreter[P[_]: Monad](int: IOInst ~> P): IOProgram ~> P = 
+    λ[IOProgram ~> P](_.foldMap(int))
+
   // Console-based interpretation of IO Programs
 
-  import scalaz.Id, Id.Id
+  import scalaz.Id, Id.Id, scalaz.Monad
 
-  object ConsoleIO extends IO[Id]{
+  object ConsoleIOEffect extends IO[Id]{
     import scala.io.StdIn
     def apply[T](inst: IOInst[T]): T = inst match {
       case Read() => StdIn.readLine()
       case Write(msg) => println(msg)
     }
   }
+
+  val ConsoleIO: IOProgram ~> Id = 
+    IOInterpreter(ConsoleIOEffect)
+    // λ[IOProgram ~> Id](_.foldMap(ConsoleIOEffect))
 
   // State-based interpretation of IO Programs
 
@@ -65,7 +74,7 @@ class FreeMonadApproach extends FlatSpec with Matchers{
 
   type IOStateAction[T]=State[IOState,T]
 
-  object IOStateActionIO extends IO[IOStateAction]{
+  object IOStateActionIOEffect extends IO[IOStateAction]{
     import scalaz.syntax.monad._
     
     def apply[T](inst: IOInst[T]): IOStateAction[T] = inst match {
@@ -86,10 +95,10 @@ class FreeMonadApproach extends FlatSpec with Matchers{
     import SingleEffectProgram._
 
     def consoleEcho(): String = 
-      echo().foldMap(ConsoleIO)
+      echo().foldMap(ConsoleIOEffect)
 
     def stateEcho(): IOStateAction[String] = 
-      echo().foldMap(IOStateActionIO)
+      echo().foldMap(IOStateActionIOEffect)
   }
 
   "State-based echo" should "work" in {
@@ -116,15 +125,15 @@ class FreeMonadApproach extends FlatSpec with Matchers{
   
   type Log[P[_]] = LogInst ~> P
 
-  object IOStateActionLog extends Log[IOStateAction]{
+  object IOStateActionLogEffect extends Log[IOStateAction]{
     def apply[T](inst: LogInst[T]): IOStateAction[T] = inst match {
-      case Logging(level, msg) => IOStateActionIO(Write(s"$level: $msg"))
+      case Logging(level, msg) => IOStateActionIOEffect(Write(s"$level: $msg"))
     }
   }
 
   object ConsoleLog extends Log[Id]{
     def apply[T](inst: LogInst[T]): T = inst match {
-      case Logging(level, msg) => ConsoleIO(Write(s"$level: $msg"))
+      case Logging(level, msg) => ConsoleIOEffect(Write(s"$level: $msg"))
     }
   }
 
@@ -188,7 +197,7 @@ class FreeMonadApproach extends FlatSpec with Matchers{
   }
   
   val IOStateActionIOLog: IOWithLogInst ~> IOStateAction = 
-    IOStateActionIO or IOStateActionLog 
+    IOStateActionIOEffect or IOStateActionLogEffect 
 
   object MultipleEffectInterpretation{
     import MultipleEffectProgram._
@@ -249,7 +258,7 @@ class FreeMonadApproach extends FlatSpec with Matchers{
 
     def stateEcho(): IOStateAction[String] = 
       echo[Coproduct[IOInst,LogInst,?]]()
-        .foldMap(IOStateActionIO or IOStateActionLog)
+        .foldMap(IOStateActionIOEffect or IOStateActionLogEffect)
   }
 
 }
